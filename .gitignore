@@ -1,0 +1,17 @@
+#exe
+*.out
+*.exe
+*/*.out
+*/*.exe
+
+#lib
+*.a
+*.so
+*/*.a
+*/*.so
+
+
+#dir
+build/
+output/
+.*/
