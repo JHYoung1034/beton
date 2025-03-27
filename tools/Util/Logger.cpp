@@ -109,7 +109,6 @@ LogFile::LogFile(const string &name, LogLevel level, uint8_t max_days, const str
 
     //获取最新切片日志文件
     string log_file_prefix = getTimeStr((exe_name + "-%Y-%02m-%02d-").data());
-    std::cout << "today log file prefix: " << log_file_prefix << endl;
 
     for (auto it = _log_file_map.begin(); it != _log_file_map.end(); ++it) {
         if (it->empty()) { continue; }
@@ -153,17 +152,15 @@ void LogFile::setFileMaxCount(size_t max_count) {
 }
 
 void LogFile::write(const Context::Ptr &ctx) {
-    //如果没打开文件，则打开
-    if (!_file.is_open()) {
-        openFile(ctx->_tv.tv_sec);
-    }
+    if (ctx->_level < level()) { return; }
 
     //每次写日志都要检查是否切换到第二天了，日志大小是否到达最大限值了
     check(ctx);
 
     //写日志文件
     if (_file.is_open()) {
-        _file << ctx->format_str();
+        _file << ctx->format_str() << endl;
+        if (ctx->_repeat > 1) { _file << "\r\n    Last message repeated " << ctx->_repeat << " times" << endl; }
     }
 }
 
@@ -225,10 +222,7 @@ void LogFile::openFile(time_t time) {
         File::create_path(_path.data(), S_IRWXO | S_IRWXG | S_IRWXU);
     }
 
-    if (_file.is_open()) {
-        _file.close();
-        _file.open(log_file, ios_base::out | ios_base::app);
-    }
+    _file.open(log_file, ios_base::out | ios_base::app);
 
     //每次新建一个日志文件，都要检查一下是否超过文件数量了，如果有则删除
     delExpiredFile();

@@ -8,9 +8,10 @@ using namespace beton;
 
 int main(int argc, char *argv[]) {
     Logger::Instance().add(make_shared<LogConsole>());
+    Logger::Instance().add(make_shared<LogFile>());
     {
         for (int i = 0; i < 100; i++) {
-            DebugL << "Hello logger!";
+            InfoL << "Hello logger!";
             usleep(1000);
         }
 
