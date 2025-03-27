@@ -39,7 +39,8 @@ public:
     using Ptr = std::shared_ptr<Context>;
     Context();
     Context(LogLevel level, const std::string &file, int line);
-    const std::string &str();
+    std::string str();
+    const std::string &format_str();
 
 private:
     void format();
@@ -138,8 +139,9 @@ private:
 //开启一个线程用于异步执行 Logger 提交的写日志任务
 class LogAsyncWriter {
 public:
+    using Ptr = std::shared_ptr<LogAsyncWriter>;
     using WriteContext = std::pair<Channel::Ptr, Context::Ptr>;
-    LogAsyncWriter();
+    explicit LogAsyncWriter();
     ~LogAsyncWriter();
 
     void write(const WriteContext &ctx);
@@ -179,10 +181,12 @@ public:
     void write(const Context::Ptr &ctx);
 
 private:
-    Logger() = default;
+    Logger();
+    void writeChannels(const Context::Ptr &ctx);
 
 private:
     Context::Ptr _last_ctx;
+    LogAsyncWriter::Ptr _writer;
     std::unordered_map<std::string, Channel::Ptr> _channel_map;
 };
 
@@ -218,11 +222,11 @@ private:
 };
 
 #define LogWrite(level) ::beton::LogCapture(::beton::Logger::Instance(), level, __FILE__, __LINE__)
-#define LogTrace LogWrite(::beton::LogLevel::Trace)
-#define LogDebug LogWrite(::beton::LogLevel::Debug)
-#define LogInfo  LogWrite(::beton::LogLevel::Info)
-#define LogWarn  LogWrite(::beton::LogLevel::Warn)
-#define LogError LogWrite(::beton::LogLevel::Error)
+#define TraceL LogWrite(::beton::LogLevel::Trace)
+#define DebugL LogWrite(::beton::LogLevel::Debug)
+#define InfoL  LogWrite(::beton::LogLevel::Info)
+#define WarnL  LogWrite(::beton::LogLevel::Warn)
+#define ErrorL LogWrite(::beton::LogLevel::Error)
 
 }
 #endif  //__LOGGER_H__

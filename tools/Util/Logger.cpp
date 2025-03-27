@@ -26,7 +26,12 @@ Context::Context(LogLevel level, const string &file, int line) {
     _line = line;
 }
 
-const string &Context::str() {
+string Context::str() {
+    string content = ostringstream::str();
+    return content;
+}
+
+const string &Context::format_str() {
     if (!_got_content) {
         format();
     }
@@ -40,7 +45,7 @@ void Context::format() {
     _format_content.clear();
     stringstream oss;
     //datetime
-    oss << datetime() << "|" << c_level[_level] << "|" << _thread_name << "|" << _file << "|" << _line << "| ";
+    oss << datetime() << "|" << c_level[_level] << "|" << _thread_name << "|" << _file << ":" << _line << "| ";
     oss << ostringstream::str();
     _format_content = oss.str();
 }
@@ -77,13 +82,11 @@ void LogConsole::write(const Context::Ptr &ctx) {
 
     if (_enable_color) { cout << LOG_CONST_TABLE[ctx->_level][1]; }
 
-    cout << ctx->str();
+    cout << ctx->format_str() << endl;
 
     if (_enable_color) { cout << CLEAR_COLOR; }
 
-    if (ctx->_repeat > 1) { cout << "\r\n    Last message repeated " << ctx->_repeat << " times"; }
-
-    cout << endl;
+    if (ctx->_repeat > 1) { cout << "\r\n    Last message repeated " << ctx->_repeat << " times" << endl; }
 }
 
 //////////////////////////// 文件写日志类 ////////////////////////////
@@ -160,7 +163,7 @@ void LogFile::write(const Context::Ptr &ctx) {
 
     //写日志文件
     if (_file.is_open()) {
-        _file << ctx->str();
+        _file << ctx->format_str();
     }
 }
 
@@ -311,8 +314,11 @@ void LogAsyncWriter::flush() {
         lock_guard<mutex> lock(_mutex);
         tmp.swap(_content_list);
     }
+
     for (auto ctx : tmp) {
-        ctx.first->write(ctx.second);
+        if (ctx.first) {
+            ctx.first->write(ctx.second);
+        }
     }
 }
 
@@ -325,6 +331,10 @@ void LogAsyncWriter::run_loop() {
 }
 
 //////////////////////////// 日志控制类 ////////////////////////////
+Logger::Logger() {
+    _writer = make_shared<LogAsyncWriter>();
+}
+
 void Logger::add(const Channel::Ptr &chn) {
     if (!chn) { return; }
 
@@ -351,18 +361,44 @@ void Logger::foreach(std::function<void(const Channel::Ptr &chn)> func) {
     }
 }
 
+static int64_t timeval_diff(struct timeval &last, struct timeval &cur) {
+    return (1000 * (cur.tv_sec - last.tv_sec)) + ((cur.tv_usec - last.tv_usec) / 1000);
+}
+
+void Logger::writeChannels(const Context::Ptr &ctx) {
+    for (auto chn : _channel_map) {
+        if (chn.second) {
+            //异步写日志线程存在，则异步写，否则同步直接写
+            _writer ? _writer->write(make_pair(chn.second, ctx)) : chn.second->write(ctx);
+        }
+    }
+}
+
 void Logger::write(const Context::Ptr &ctx) {
     if (_channel_map.empty()) {
         return;
     }
 
-    for (auto chn : _channel_map) {
-        if (chn.second) {
-            chn.second->write(ctx);
+    if (_last_ctx &&
+        _last_ctx->_file == ctx->_file &&
+        _last_ctx->_line == ctx->_line &&
+        ctx->str() == _last_ctx->str()) {
+
+        _last_ctx->_repeat++;
+        if (timeval_diff(_last_ctx->_tv, ctx->_tv) < 500) {
+            return;
         }
+        writeChannels(_last_ctx);
+    } else if (_last_ctx && _last_ctx->_repeat > 0) {
+        struct timeval cur;
+        gettimeofday(&cur, NULL);
+        writeChannels(_last_ctx);
     }
 
+    writeChannels(ctx);
+
     _last_ctx = ctx;
+    _last_ctx->_repeat = 0;
 }
 
 }
