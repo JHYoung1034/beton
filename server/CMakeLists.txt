@@ -16,4 +16,8 @@ set(COMPILE_DEFINITIONS ${BT_COMPILE_DEFINITIONS})
 target_compile_definitions(server PUBLIC ${COMPILE_DEFINITIONS})
 target_compile_options(server PUBLIC ${COMPILE_OPTIONS_DEFAULT})
 target_link_libraries(server PUBLIC ${LINK_LIBRARIES})
-target_include_directories(server PRIVATE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)
+target_include_directories(server
+    PRIVATE
+    "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>"
+    PUBLIC
+    "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>")

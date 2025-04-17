@@ -86,7 +86,7 @@ void LogConsole::write(const Context::Ptr &ctx) {
 
     if (_enable_color) { cout << CLEAR_COLOR; }
 
-    if (ctx->_repeat > 1) { cout << "\r\n    Last message repeated " << ctx->_repeat << " times" << endl; }
+    if (ctx->_repeat > 2) { cout << "\r\n    Last message repeated " << ctx->_repeat - 1 << " times" << endl; }
 }
 
 //////////////////////////// 文件写日志类 ////////////////////////////
@@ -103,8 +103,8 @@ LogFile::LogFile(const string &name, LogLevel level, uint8_t max_days, const str
     File::scanDir(_path, [this, exe_name](const std::string &path, bool is_dir) -> bool {
         if (!is_dir && start_with(path, exe_name) && end_with(path, ".log")) {
             _log_file_map.emplace(path);
-            return true;
         }
+        return true;
     }, false);
 
     //获取最新切片日志文件
@@ -160,13 +160,17 @@ void LogFile::write(const Context::Ptr &ctx) {
     //写日志文件
     if (_file.is_open()) {
         _file << ctx->format_str() << endl;
-        if (ctx->_repeat > 1) { _file << "\r\n    Last message repeated " << ctx->_repeat << " times" << endl; }
+        if (_enable_stack_trace && ctx->_level >= _stack_trace_level) {
+            _file << "    Stack trace:\r\n";
+            _file << stackBacktrace(true) << endl;
+        }
+        if (ctx->_repeat > 2) { _file << "\r\n    Last message repeated " << ctx->_repeat - 1 << " times" << endl; }
     }
 }
 
 static constexpr auto s_second_per_day = 24 * 60 * 60;
 
-static uint64_t getDay(time_t second) {
+static time_t getDay(time_t second) {
     return (second + getGMTOff()) / s_second_per_day;
 }
 
@@ -181,7 +185,7 @@ static string getLogFilePathName(const string &dir, time_t time, uint32_t file_i
 
 static time_t getLogFileTime(const string &full_path) {
     string name = fileNameWithoutPath(full_path.data());
-    struct tm tm{0};
+    struct tm tm;
     if (!strptime(name.substr(name.find("-") + 1).data(), "%Y-%02m-%02d", &tm)) {
         return 0;
     }
@@ -261,6 +265,13 @@ void LogFile::delExpiredFile() {
     }
 }
 
+void LogFile::setEnableStackTrace(bool enable, LogLevel level) {
+    if (_enable_stack_trace != enable) {
+        _enable_stack_trace = enable;
+        _stack_trace_level = level;
+    }
+}
+
 //////////////////////////// webhook写日志类 ////////////////////////////
 LogWebHook::LogWebHook(const std::string &name, LogLevel level, const std::string &url)
     :Channel(name, level) {
@@ -325,8 +336,19 @@ void LogAsyncWriter::run_loop() {
 }
 
 //////////////////////////// 日志控制类 ////////////////////////////
+INSTANCE_IMP(Logger)
+
 Logger::Logger() {
     _writer = make_shared<LogAsyncWriter>();
+}
+
+Logger::~Logger() {
+    _writer.reset();
+    {
+        LogCapture(*this, Info, __FILE__, __LINE__) << "Logger destructor";
+    }
+    //删除所有注册的日志通道
+    _channel_map.clear();
 }
 
 void Logger::add(const Channel::Ptr &chn) {

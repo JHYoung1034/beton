@@ -97,6 +97,8 @@ public:
 
     void setFileMaxCount(size_t max_count);
 
+    void setEnableStackTrace(bool enable, LogLevel level = LogLevel::Error);
+
     void write(const Context::Ptr &ctx) override;
 
 private:
@@ -107,6 +109,9 @@ private:
     void delExpiredFile();
 
 private:
+    bool _enable_stack_trace = false;
+    LogLevel _stack_trace_level = LogLevel::Error;
+
     uint8_t _max_days;
     uint8_t _file_index = 0;
     //每个日志文件切片最大128M
@@ -163,12 +168,12 @@ private:
  * 包含：writer, channel_list
  * 增，删，查操作线程不安全
 */
-class Logger : public noncopyable {
+class Logger : public noncopyable, public std::enable_shared_from_this<Logger> {
 public:
-    static Logger &Instance() {
-        static Logger log;
-        return log;
-    }
+    using Ptr = std::shared_ptr<Logger>;
+    static Logger &Instance();
+    explicit Logger();
+    ~Logger();
 
     void add(const Channel::Ptr &chn);
 
@@ -181,11 +186,10 @@ public:
     void write(const Context::Ptr &ctx);
 
 private:
-    Logger();
     void writeChannels(const Context::Ptr &ctx);
 
 private:
-    Context::Ptr _last_ctx;
+    Context::Ptr _last_ctx = nullptr;
     LogAsyncWriter::Ptr _writer;
     std::unordered_map<std::string, Channel::Ptr> _channel_map;
 };

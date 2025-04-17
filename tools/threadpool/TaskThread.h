@@ -11,9 +11,14 @@ namespace beton {
 class TaskThread : public Thread {
 public:
     using Ptr = std::shared_ptr<TaskThread>;
-    // using TaskFunc = std::function<
-    void async();
+    
+    TaskThread(const std::string &name, uint32_t index, bool cpu_affinity);
+    void async(TaskFunc task_func, Thread::TaskPriority priority = Thread::Normal, bool may_sync = true) override;
+    void run_loop() override;
 
+private:
+    TaskQueue<TaskFunc>::Ptr _task_queue;
+    std::function<void()> _setting_func;
 };
 
 }

@@ -17,6 +17,13 @@ const T& clamp(const T& min, const T& set, const T& max) {
 }
 #endif
 
+#define INSTANCE_IMP(class_name, ...) \
+class_name &class_name::Instance() { \
+    static std::shared_ptr<class_name> s_instance(new class_name(__VA_ARGS__)); \
+    static class_name &s_instance_ref = *s_instance; \
+    return s_instance_ref; \
+}
+
 class noncopyable {
 protected:
     noncopyable()=default;
@@ -67,6 +74,8 @@ void no_locks_localtime(struct tm *tmp, time_t t);
 struct tm getLocalTime(time_t sec);
 std::string getTimeStr(const char *fmt, time_t time = 0);
 long getGMTOff();
+uint64_t getCurrentMicroSecond();
+uint64_t getCurrentMilliSecond();
 
 std::string stackBacktrace(bool demangle = false);
 

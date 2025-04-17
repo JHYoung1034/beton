@@ -5,6 +5,7 @@
 #include <string>
 #include <sstream>
 #include <exception>
+#include <map>
 
 namespace beton {
 
@@ -35,6 +36,27 @@ private:
 };
 
 std::ostream &operator<<(std::ostream &os, const SockException &err);
+
+class SockUtil {
+public:
+    static void setReuseAddr(int sockfd);
+    static void setReusePort(int sockfd);
+    static void setNoDelay(int sockfd, bool nodelay = true);
+    static void setSendBuf(int sockfd, int size);
+    static void setRecvBuf(int sockfd, int size);
+    static void setSndTimeout(int sockfd, int timeout_ms);
+    static void setRcvTimeout(int sockfd, int timeout_ms);
+    static void setNonBlock(int sockfd, bool nonblock = true);
+    static void setCloseWait(int sockfd, int timeout_sec = 0);
+    static void setcloseExec(int sockfd, bool close_exec = true);
+    static void setNosigpipe(int sockfd);
+
+    static void setTcpQuickAck(int sockfd, bool quick_ack = true);
+
+    static std::string getLocalIP(int sockfd);
+    // static std::pair<std::string, std::string> getInterfaceAddr();
+
+};
 
 }
 #endif  //__SOCK_UTIL_H__

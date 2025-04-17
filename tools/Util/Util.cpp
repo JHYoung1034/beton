@@ -8,6 +8,7 @@
 #include <sys/time.h>
 #include <limits.h>
 #include <cstring>
+#include <chrono>
 
 using namespace std;
 
@@ -164,6 +165,16 @@ static call_once s_token([]() {
 
 long getGMTOff() {
     return s_gmtoff;
+}
+
+uint64_t getCurrentMicroSecond() {
+    using namespace std::chrono;
+    return duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
+}
+
+uint64_t getCurrentMilliSecond() {
+    using namespace std::chrono;
+    return duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
 }
 
 static string demangleFunction(const char* mangled) {
