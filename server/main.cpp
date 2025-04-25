@@ -1,9 +1,7 @@
-#include <iostream>
 #include "../tools/Util/Logger.h"
 #include "../tools/Util/Util.h"
 #include "../tools/threadpool/ThreadPool.h"
 #include <signal.h>
-#include <unistd.h>
 
 using namespace std;
 using namespace beton;

@@ -25,6 +25,12 @@ private:
     std::atomic<uint32_t> _task_index = {0};
     std::unordered_map<std::string, Thread::Ptr> _poller_thread_pool;
     std::unordered_map<std::string, Thread::Ptr> _task_thread_pool;
+
+
+    static std::atomic<bool> _initialized;
+    static bool _cpu_affinity;
+    static uint32_t _poller_thread_count;
+    static uint32_t _task_thread_count;
 };
 
 }
