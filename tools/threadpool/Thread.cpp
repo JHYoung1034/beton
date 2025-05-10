@@ -1,6 +1,5 @@
 #include "Thread.h"
-
-#include <cstring>
+#include <pthread.h>
 
 using namespace std;
 
@@ -62,8 +61,7 @@ Thread::Thread(const std::string &name) : _name(name) {
 }
 
 Thread::~Thread() {
-    _started = false;
-    _thread->join();
+    InfoL << "Destructor: " << _name << endl;
 }
 
 bool Thread::is_current_thread() {

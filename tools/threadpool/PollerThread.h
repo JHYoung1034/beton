@@ -1,10 +1,6 @@
 #ifndef __POLER_THREAD_H__
 #define __POLER_THREAD_H__
-
-#include <memory>
-#include <unordered_map>
 #include <map>
-#include <functional>
 #include "Thread.h"
 #include "Util/Pipe.h"
 
@@ -18,6 +14,8 @@ public:
     using DelayTask = CancelableTask<uint64_t()>;
 
     PollerThread(const std::string &name, uint32_t index, bool cpu_affinity);
+
+    ~PollerThread();
     ///////////////////////////////////////////////
     void async(TaskFunc func, Thread::TaskPriority priority = Thread::Normal, bool may_sync = true) override;
     ///////////////////////////////////////////////
@@ -36,6 +34,10 @@ private:
 
     uint64_t flushDelayTask(uint64_t now);
 
+    void addPipeEvent();
+
+    void onPipeEvent();
+
 private:
     //现成初始化
     std::function<void()> _setting_func;
@@ -43,11 +45,9 @@ private:
     Pipe _pipe;
     std::mutex _task_mutex;
     std::list<TaskFunc> _task_list;
-
     //epoll 事件处理
     int _poller_fd;
     std::unordered_map<int, std::shared_ptr<onEvent> > _event_map;
-
     //延时任务处理,有可能多个任务延时时间相同，所以用multimap,允许存在相同的延时时间，并对所有延时任务排序
     std::multimap<uint64_t, DelayTask::Ptr> _delay_task_map;
 };

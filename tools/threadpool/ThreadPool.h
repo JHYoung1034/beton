@@ -3,8 +3,6 @@
 
 #include "PollerThread.h"
 #include "TaskThread.h"
-#include <unordered_map>
-#include <atomic>
 
 namespace beton {
 
@@ -12,8 +10,10 @@ class ThreadPool : public noncopyable {
 public:
     static ThreadPool &Instance();
     static void initialize(uint32_t poller_thread, uint32_t task_thread, bool cpu_affinity = true);
-    const PollerThread::Ptr &getPoller();
-    const TaskThread::Ptr &getThread();
+
+    ~ThreadPool();
+    PollerThread::Ptr getPoller();
+    TaskThread::Ptr getThread();
 
 private:
     ThreadPool();
@@ -23,9 +23,8 @@ private:
 private:
     std::atomic<uint32_t> _poller_index = {0};
     std::atomic<uint32_t> _task_index = {0};
-    std::unordered_map<std::string, Thread::Ptr> _poller_thread_pool;
-    std::unordered_map<std::string, Thread::Ptr> _task_thread_pool;
-
+    std::map<std::string, Thread::Ptr> _poller_thread_pool;
+    std::map<std::string, Thread::Ptr> _task_thread_pool;
 
     static std::atomic<bool> _initialized;
     static bool _cpu_affinity;

@@ -7,7 +7,6 @@
 #include <ctime>
 #include <vector>
 
-
 namespace beton {
 
 #if __cplusplus < 201703L
@@ -51,6 +50,10 @@ private:
 
 class semaphore {
 public:
+    ~semaphore() {
+        notify();
+    }
+
     void notify(size_t n = 1) {
         std::unique_lock<std::recursive_mutex> lock(_mutex);
         _count += n;

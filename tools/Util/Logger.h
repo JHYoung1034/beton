@@ -9,7 +9,6 @@
 #include <sstream>
 #include <fstream>
 #include <thread>
-#include <functional>
 
 #include <cstring>
 #include <time.h>

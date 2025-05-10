@@ -15,6 +15,16 @@ TaskThread::TaskThread(const string &name, uint32_t index, bool cpu_affinity)
     _task_queue = make_shared<TaskQueue<TaskFunc>>();
 }
 
+TaskThread::~TaskThread() {
+    _started = false;
+    //唤醒线程
+    _task_queue->push(nullptr);
+    //等待线程退出
+    if (_thread && _thread->joinable()) {
+        _thread->join();
+    }
+}
+
 void TaskThread::async(TaskFunc func, Thread::TaskPriority priority, bool may_sync) {
     if (func && may_sync && is_current_thread()) {
         func();

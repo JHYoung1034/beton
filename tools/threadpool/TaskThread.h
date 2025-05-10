@@ -3,8 +3,6 @@
 
 #include "Util/Util.h"
 #include "Thread.h"
-#include <memory>
-#include <functional>
 
 namespace beton {
 //使用条件变量实现线程中任务循环调度，适合用于非IO绑定任务
@@ -13,6 +11,7 @@ public:
     using Ptr = std::shared_ptr<TaskThread>;
     
     TaskThread(const std::string &name, uint32_t index, bool cpu_affinity);
+    ~TaskThread();
     void async(TaskFunc task_func, Thread::TaskPriority priority = Thread::Normal, bool may_sync = true) override;
     void run_loop() override;
 

@@ -66,6 +66,7 @@ endfunction()
 
 ############################ 编译选项设置 ######################################
 set(COMPILE_OPTIONS_DEFAULT
+    "-g"
     "-fPIC"
     "-Wall;-Wextra"
     "-Wno-unused-function;-Wno-unused-parameter;-Wno-unused-variable"

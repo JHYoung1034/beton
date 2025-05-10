@@ -19,6 +19,15 @@ PollerThread::PollerThread(const std::string &name, uint32_t index, bool cpu_aff
     };
 }
 
+PollerThread::~PollerThread() {
+    _started = false;
+    // onPipeEvent();
+    _pipe.write("1", 1);
+    if (_thread && _thread->joinable()) {
+        _thread->join();
+    }
+}
+
 void PollerThread::async(TaskFunc func, Thread::TaskPriority priority, bool may_sync) {
     if (func && may_sync && is_current_thread()) {
         func();
@@ -155,17 +164,68 @@ uint64_t PollerThread::getMinDelayTime() {
     return flushDelayTask(now);
 }
 
+void PollerThread::addPipeEvent() {
+    if (_pipe.isValid()) {
+        if (addEvent(_pipe.getReadFd(), EPOLLIN, [this](int event) { onPipeEvent();}) == -1) {
+            throw runtime_error("add pipe event failed");
+        }
+    }
+}
+
+void PollerThread::onPipeEvent() {
+    char buffer[1024] = {0};
+    int err = 0;
+    while (true) {
+        if ((err = _pipe.read(buffer, sizeof(buffer))) > 0) {
+            //把管道事件一次性读完
+            continue;
+        }
+        if (err == 0 || errno != EAGAIN) {
+            //异常了，重新打开管道
+            delEvent(_pipe.getReadFd(), EPOLLIN, [](bool){});
+            _pipe.reset();
+            addPipeEvent();
+        }
+        break;
+    }
+    //处理异步任务
+    std::list<TaskFunc> task_list;
+    {
+        std::lock_guard<std::mutex> lock(_task_mutex);
+        task_list.swap(_task_list);
+    }
+    for (auto &task : task_list) {
+        try {
+            task();
+        } catch (std::exception &ex) {
+            ErrorL << "Exception in async task: " << ex.what();
+        }
+    }
+}
+
 void PollerThread::run_loop() {
     if (!_started) {
         _started = true;
         _thread = make_shared<thread>(&PollerThread::run_loop, this);
         return;
     }
-
+    //初始化时线程环境，名字，cpu亲和性等
     _setting_func();
+    //创建epoll
     _poller_fd = epoll_create1(EPOLL_CLOEXEC);
+    if (_poller_fd == -1) {
+        WarnL << "epoll create failed: " << SockException(errno);
+        throw runtime_error("epoll create failed");
+    }
+    //设置epoll的IO属性,如
+    SockUtil::setcloseExec(_poller_fd);
+
+    //设置管道的读端为epoll的事件
+    addPipeEvent();
+    //设置epoll的事件处理函数
     uint64_t min_delay_time = 0;
     struct epoll_event ev[EPOLL_SIZE];
+
     while (_started) {
         min_delay_time = getMinDelayTime();
         sleep();
@@ -178,20 +238,22 @@ void PollerThread::run_loop() {
 
         //处理事件
         for (int i = 0; i < ret; ++i) {
-            auto it = _event_map.find(ev[i].data.fd);
-            if (it != _event_map.end()) {
-                (*it->second)(ev[i].events);
-            }
-        }
+            int fd = ev[i].data.fd;
+            struct epoll_event &event = ev[i];
 
-        //处理异步任务
-        std::list<TaskFunc> task_list;
-        {
-            std::lock_guard<std::mutex> lock(_task_mutex);
-            task_list.swap(_task_list);
-        }
-        for (auto &task : task_list) {
-            task();
+            auto it = _event_map.find(ev[i].data.fd);
+            if (it == _event_map.end()) {
+                epoll_ctl(_poller_fd, EPOLL_CTL_DEL, fd, nullptr);
+            }
+
+            auto callbakc_func = it->second;
+            try {
+                (*callbakc_func)(event.events);
+            } catch (std::exception &ex) {
+                ErrorL << "Exception in epoll event: " << ex.what();
+            } catch (...) {
+                ErrorL << "Unknown exception in epoll event";
+            }
         }
     }
     //关闭epoll
@@ -200,15 +262,6 @@ void PollerThread::run_loop() {
         _poller_fd = -1;
     }
     _event_map.clear();
-    //清空任务列表
-    std::list<TaskFunc> task_list;
-    {
-        std::lock_guard<std::mutex> lock(_task_mutex);
-        task_list.swap(_task_list);
-    }
-    for (auto &task : task_list) {
-        task();
-    }
     //清空延时任务列表
     std::multimap<uint64_t, DelayTask::Ptr> delay_task_list;
     {

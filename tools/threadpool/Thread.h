@@ -1,12 +1,6 @@
 #ifndef __THREAD_H__
 #define __THREAD_H__
-#include <functional>
-#include <memory>
-#include <string>
-#include <list>
-#include <thread>
 #include <atomic>
-#include <pthread.h>
 #include "Util/Util.h"
 #include "Util/Logger.h"
 
@@ -102,23 +96,24 @@ template<typename T>
 class TaskQueue {
 public:
     using Ptr = std::shared_ptr<TaskQueue>;
-    TaskQueue() {}
+
     void push(T &&task, bool first = false) {
         {
             std::lock_guard<std::mutex> lock(_mutex);
-            first ? _task_list.push_front(std::forward<T>(task))
-                  : _task_list.push_back(std::forward<T>(task));
+            first ? _task_list.emplace_front(std::forward<T>(task))
+                  : _task_list.emplace_back(std::forward<T>(task));
         }
         _sem.notify();
     }
     T pop() {
         _sem.wait();
-        auto task = _task_list.front();
-        {
-            std::lock_guard<std::mutex> lock(_mutex);
-            _task_list.pop_front();
+        std::lock_guard<std::mutex> lock(_mutex);
+        if (_task_list.empty()) {
+            return nullptr;
         }
-        return task;
+        auto task = std::move(_task_list.front());
+        _task_list.pop_front();
+        return std::move(task);
     }
 
 private:
